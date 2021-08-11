@@ -37,7 +37,7 @@ start_epoch=0
 #epoch number to decend lr
 step_epoch=1516541
 #print frequency (default: 10)
-print_freq=2000
+print_freq=100
 #path to latest checkpoint (default: none)
 #resume="model_best_ssgrl.pth.tar"
 #resume="backup/86.26.pth.tar"
@@ -53,13 +53,13 @@ if [ -n "$resume" ];
 then
   extra_cmd="$extra_cmd --resume $resume"
 fi
-valid_data_dir="None"
+valid_data_dir="valid.npy"
 
 # use single gpu (eg,gpu 0) to trian:
 #     CUDA_VISIBLE_DEVICES=0 
 # use multiple gpu (eg,gpu 0 and 1) to train
 #     CUDA_VISIBLE_DEVICES=0,1  
-CUDA_VISIBLE_DEVICES=5 python3 main.py \
+CUDA_VISIBLE_DEVICES=0 python3 main.py \
     ${dataset} \
     ${train_data_dir} \
     ${valid_data_dir} \

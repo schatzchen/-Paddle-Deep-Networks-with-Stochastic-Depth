@@ -5,17 +5,21 @@ import torch
 import random
 import numpy as np
 
-def split(data,valid):
+def split(data,target,valid_dir):
     sz = data.shape[0]
     train = []
     valid = []
-    if valid !='None':
-        valid_id = np.load(valid)
+    train_target = []
+    valid_target = []
+    if valid_dir !='None':
+        valid_id = np.load(valid_dir)
         for i in range(sz):
             if i in valid_id:
                 valid.append(data[i])
+                valid_target.append(target[i])
             else:
                 train.append(data[i])
+                train_target.append(target[i])
     else:
         valid_id = []
         for i in range(sz):
@@ -25,7 +29,7 @@ def split(data,valid):
             else:
                 train.append(data[i])
         np.save('valid',valid_id)
-    return torch.cat(train),torch.cat(valid)
+    return np.stack(train),np.stack(valid),np.stack(train_target),np.stack(valid_target)
 
 
 def get_train_test_set(train_dir,valid_dir ,test_dir, train_anno,valid_anno, test_anno, train_label=None,valid_label=None, test_label=None, args=None):
@@ -48,10 +52,14 @@ def get_train_test_set(train_dir,valid_dir ,test_dir, train_anno,valid_anno, tes
     test_set = torchvision.datasets.CIFAR10(root='../dataset', train=False,
                                             download=True, transform=test_data_transform)
 
-    train_data,valid_data = split(train_set.data,valid_dir)
-
+    train_data,valid_data,train_target,valid_target = split(train_set.data,train_set.targets,valid_dir)
+    print(len(valid_set), len(train_set))
     train_set.data=train_data
+    train_set.targets=train_target
     valid_set.data=valid_data
+    valid_set.targets=valid_target
+    print(len(valid_set),len(train_set))
+
     train_loader = DataLoader(dataset=train_set,
                               num_workers=args.workers,
                               batch_size=args.batch_size,

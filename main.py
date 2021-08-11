@@ -110,10 +110,10 @@ def main():
     valid_data_dir = args.valid_data
     test_data_dir = args.test_data
     train_list = args.trainlist
-    valid_list = args.validlist
+    valid_list = None
     test_list = args.testlist
     train_label = args.train_label
-    valid_label = args.valid_label
+    valid_label = None
     test_label = args.test_label
     train_loader,valid_loader,test_loader = get_train_test_set(train_data_dir,valid_data_dir, test_data_dir, train_list,valid_list, test_list, train_label,valid_label,
                                                    test_label, args)
@@ -126,14 +126,12 @@ def main():
         model = load_pretrain_model(model, args)
     model.cuda()
 
-    criterion = nn.BCEWithLogitsLoss(reduce=True, size_average=True).cuda()
+    criterion = nn.CrossEntropyLoss(reduce=True, size_average=True).cuda()
     for p in model.parameters():
         p.requires_grad = True
 
-    if args.start_epoch == 0:
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
-    else:
-        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
+    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr,momentum=args.momentum
+                                ,dampening=0,weight_decay=args.weight_decay,nesterov=True)
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -193,18 +191,16 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
     top5 = AverageMeter()
 
     end = time.time()
-    model.eval()
-    model.layer4.train()
+    model.train()
     for i, (input, target) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
-        target = torch.tensor(target).cuda(non_blocking=True)
+        target = torch.tensor(target,dtype=torch.long).cuda(non_blocking=True)
         input_var = torch.tensor(input).cuda()
         # compute output
 
         t1 = time.time()
         output = model(input_var)
-        target = target.float()
         target = target.cuda(non_blocking=True)
         target_var = torch.autograd.Variable(target)
         loss = criterion(output, target_var)
@@ -236,17 +232,16 @@ def validate(val_loader, model, criterion, epoch, args):
     model.eval()
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
-        target = torch.tensor(target).cuda(non_blocking=True)
+        target = torch.tensor(target,dtype=torch.long).cuda(non_blocking=True)
         input_var = torch.tensor(input).cuda()
         output = model(input_var)
-        target = target.float()
         target = target.cuda(non_blocking=True)
         target_var = torch.autograd.Variable(target)
         loss = criterion(output, target_var)
         losses.update(loss.item(), input.size(0))
 
         predict = torch.argmax(output,dim=1)
-        num_all = len(target)
+        num_all = target.shape[0]
         acc_num = (target==predict).sum().item()/num_all
         acc.update(acc_num,num_all)
 
