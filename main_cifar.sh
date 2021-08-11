@@ -8,13 +8,13 @@ LOG="log/finetune-81.8-`date +'%Y-%m-%d_%H-%M-%S'`"
 #   ./main.sh [post(any content to record the conducted experiment)]
 #LOG="log/bcnn.`date +'%Y-%m-%d_%H-%M-%S'`"
 #exec &> >(tee -a "$LOG")
-dataset='COCO'
-train_data_dir='../dataset/coco/train2014'
-train_list='../dataset/coco/annotations/instances_train2014.json'
-test_data_dir='../dataset/coco/val2014'
-test_list='../dataset/coco/annotations/instances_val2014.json'
-train_label='../dataset/coco/train_label_vectors.npy'
-test_label='../dataset/coco/val_label_vectors.npy'
+dataset='cifar_10'
+train_data_dir='../dataset/cifar_10/train2014'
+train_list='../dataset/cifar_10/annotations/instances_train2014.json'
+test_data_dir='../dataset/cifar_10/val2014'
+test_list='../dataset/cifar_10/annotations/instances_val2014.json'
+train_label='../dataset/cifar_10/train_label_vectors.npy'
+test_label='../dataset/cifar_10/val_label_vectors.npy'
 
 graph_file='../dataset/coco/prob_train.npy'
 word_file='../dataset/coco/vectors.npy'
@@ -24,14 +24,14 @@ learning_rate=0.1
 momentum=0.9
 weight_decay=1e-4
 
-pretrained=1
+pretrained=0
 pretrain_model='../pretrain_model/resnet101.pth.tar'
 #input parameter 
 crop_size=576
 scale_size=640
 
 #number of data loading workers
-workers=2
+workers=4
 #manual epoch number (useful on restarts)
 start_epoch=0
 #epoch number to decend lr
@@ -39,7 +39,7 @@ step_epoch=1516541
 #print frequency (default: 10)
 print_freq=2000
 #path to latest checkpoint (default: none)
-resume="model_best_ssgrl.pth.tar"
+#resume="model_best_ssgrl.pth.tar"
 #resume="backup/86.26.pth.tar"
 #evaluate mode
 evaluate=false
@@ -53,15 +53,16 @@ if [ -n "$resume" ];
 then
   extra_cmd="$extra_cmd --resume $resume"
 fi
-
+valid_data_dir="None"
 
 # use single gpu (eg,gpu 0) to trian:
 #     CUDA_VISIBLE_DEVICES=0 
 # use multiple gpu (eg,gpu 0 and 1) to train
 #     CUDA_VISIBLE_DEVICES=0,1  
-CUDA_VISIBLE_DEVICES=0 python3 main.py \
+CUDA_VISIBLE_DEVICES=5 python3 main.py \
     ${dataset} \
     ${train_data_dir} \
+    ${valid_data_dir} \
     ${test_data_dir} \
     ${train_list} \
     ${test_list}  \

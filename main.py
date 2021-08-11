@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from transforms import get_train_test_set
 from stochastic_res import resnet101_StoDepth_lineardecay as resnet101
 from load_pretrain_model import load_pretrain_model
-from metrics import voc12_mAP
+
 
 
 global best_prec1
@@ -38,16 +38,16 @@ def arg_parse():
                         help='path to test dataset')
     parser.add_argument('trainlist', metavar='DIR',
                         help='path to train list')
-    parser.add_argument('validlist', metavar='DIR',
-                        help='path to valid list')
+    # parser.add_argument('validlist', metavar='DIR',
+    #                     help='path to valid list')
     parser.add_argument('testlist', metavar='DIR',
                         help='path to test list')
     parser.add_argument('-pm', '--pretrain_model', default='', type=str, metavar='PATH',
                         help='path to latest pretrained_model (default: none)')
     parser.add_argument('-train_label', default='', type=str, metavar='PATH',
                         help='path to train label (default: none)')
-    parser.add_argument('-valid_label', default='', type=str, metavar='PATH',
-                        help='path to valid label (default: none)')
+    # parser.add_argument('-valid_label', default='', type=str, metavar='PATH',
+    #                     help='path to valid label (default: none)')
     parser.add_argument('-graph_file', default='', type=str, metavar='PATH',
                         help='path to graph (default: none)')
     parser.add_argument('-word_file', default='', type=str, metavar='PATH',
@@ -58,7 +58,7 @@ def arg_parse():
                         help='number of print_freq (default: 100)')
     parser.add_argument('-j', '--workers', default=4, type=int, metavar='N',
                         help='number of data loading workers (default: 4)')
-    parser.add_argument('--epochs', default=90, type=int, metavar='N',
+    parser.add_argument('--epochs', default=500, type=int, metavar='N',
                         help='number of total epochs to run')
     parser.add_argument('--start-epoch', default=0, type=int, metavar='N',
                         help='manual epoch number (useful on restarts)')
@@ -130,12 +130,10 @@ def main():
     for p in model.parameters():
         p.requires_grad = True
 
-
-    for p in model.fc.parameters():
-        p.requires_grad = True
-    for p in model.layer4.parameters():
-        p.requires_grad = True
-    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
+    if args.start_epoch == 0:
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=1e-4)
+    else:
+        optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr)
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -157,19 +155,33 @@ def main():
         return
 
     for epoch in range(args.start_epoch, args.epochs):
+        if args.start_epoch==0 and epoch==10:
+            for para in optimizer.param_groups:
+                para['lr']=args.lr
+        elif epoch==250:
+            for para in optimizer.param_groups:
+                para['lr']=args.lr/10
+        elif epoch==375:
+            for para in optimizer.param_groups:
+                para['lr']=args.lr/100
         train(train_loader, model, criterion, optimizer, epoch, args)
 
         # evaluate on validation set
         with torch.no_grad():
-            mAP = validate(valid_loader, model, criterion, epoch, args)
-            test_result = validate(test_loader, model, criterion, epoch, args)
+            print('valid: ')
+            acc = validate(valid_loader, model, criterion, epoch, args)
+            print('test: ')
+            acc = validate(test_loader, model, criterion, epoch, args)
         # remember best prec@1 and save checkpoint
-        is_best = mAP > best_prec1
-        best_prec1 = max(mAP, best_prec1)
+
+
+
+        is_best = acc > best_prec1
+        best_prec1 = max(acc, best_prec1)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
-            'best_mAP': mAP,
+            'best_acc': acc,
         }, is_best, args)
 
 
@@ -218,13 +230,11 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
 def validate(val_loader, model, criterion, epoch, args):
     batch_time = AverageMeter()
     losses = AverageMeter()
-    top1 = AverageMeter()
-    top5 = AverageMeter()
+    acc = AverageMeter()
 
     # switch to evaluate mode
     model.eval()
     end = time.time()
-    x = []
     for i, (input, target) in enumerate(val_loader):
         target = torch.tensor(target).cuda(non_blocking=True)
         input_var = torch.tensor(input).cuda()
@@ -235,9 +245,10 @@ def validate(val_loader, model, criterion, epoch, args):
         loss = criterion(output, target_var)
         losses.update(loss.item(), input.size(0))
 
-        mask = (target > 0).float()
-        v = torch.cat((output, mask), 1)
-        x.append(v)
+        predict = torch.argmax(output,dim=1)
+        num_all = len(target)
+        acc_num = (target==predict).sum().item()/num_all
+        acc.update(acc_num,num_all)
 
         # measure elapsed time
         batch_time.update(time.time() - end)
@@ -248,13 +259,9 @@ def validate(val_loader, model, criterion, epoch, args):
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss {loss.val:.4f} ({loss.avg:.4f})'.format(
                 i, len(val_loader), batch_time=batch_time, loss=losses))
-    x = torch.cat(x, 0)
-    x = x.cpu().detach().numpy()
-    print(x.shape)
-    np.savetxt(args.post + '_score', x)
-    mAP = voc12_mAP(args.post + '_score', args.num_classes)
-    print(' * mAP {mAP:.3f}'.format(mAP=mAP))
-    return mAP
+
+    print(' * acc {acc.avg:.3f}'.format(acc=acc))
+    return acc.avg
 
 
 def save_checkpoint(state, is_best, args, filename='checkpoint.pth.tar'):
