@@ -19,7 +19,7 @@ test_label='../dataset/cifar_10/val_label_vectors.npy'
 graph_file='../dataset/coco/prob_train.npy'
 word_file='../dataset/coco/vectors.npy'
 batch_size=128
-epochs=200
+epochs=500
 learning_rate=0.1
 momentum=0.9
 weight_decay=1e-4
@@ -31,7 +31,7 @@ crop_size=576
 scale_size=640
 
 #number of data loading workers
-workers=4
+workers=2
 #manual epoch number (useful on restarts)
 start_epoch=0
 #epoch number to decend lr
@@ -39,7 +39,7 @@ step_epoch=1516541
 #print frequency (default: 10)
 print_freq=100
 #path to latest checkpoint (default: none)
-#resume="model_best_ssgrl.pth.tar"
+resume="checkpoint_ssgrl.pth.tar"
 #resume="backup/86.26.pth.tar"
 #evaluate mode
 evaluate=false
@@ -59,7 +59,7 @@ valid_data_dir="valid.npy"
 #     CUDA_VISIBLE_DEVICES=0 
 # use multiple gpu (eg,gpu 0 and 1) to train
 #     CUDA_VISIBLE_DEVICES=0,1  
-CUDA_VISIBLE_DEVICES=0 python3 main.py \
+CUDA_VISIBLE_DEVICES=6 python3 main.py \
     ${dataset} \
     ${train_data_dir} \
     ${valid_data_dir} \
